@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>瞬刻门户 · 装修后台（GitHub 版）</title>
+<style>
+  :root{--bg:#f4f3ee;--card:#fff;--text:#1a1b1c;--sub:#6b7280;--line:rgba(0,0,0,.09);--accent:#e4572e}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;font-size:13px}
+  .hide{display:none!important}
+  /* 登录/向导 */
+  .gate{max-width:440px;margin:8vh auto;background:var(--card);border-radius:14px;padding:24px;border:1px solid var(--line)}
+  .gate h2{margin:0 0 6px;font-size:18px}
+  .gate .hint{font-size:11.5px;color:var(--sub);line-height:1.8;margin-bottom:14px}
+  .fld{margin-bottom:12px}
+  .fld label{display:block;font-size:11.5px;color:var(--sub);margin-bottom:4px}
+  .fld input,.fld select,.fld textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;font-family:inherit;background:#fff;color:var(--text)}
+  .fld textarea{min-height:90px;resize:vertical}
+  .btn{padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:12.5px;color:var(--text)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.sm{padding:4px 8px;font-size:11px}
+  /* 主界面 */
+  .app{display:flex;height:100vh;overflow:hidden}
+  .side{width:190px;flex:0 0 190px;background:#1f2226;color:#fff;padding:12px 0;overflow-y:auto}
+  .side b{display:block;padding:0 16px 12px;font-size:14px;opacity:.92}
+  .side a{display:block;padding:10px 16px;color:#c9ccd1;font-size:12.5px;cursor:pointer;text-decoration:none}
+  .side a.on{background:#2f343a;color:#fff;border-left:3px solid var(--accent)}
+  .main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+  .top{height:48px;flex:0 0 48px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;padding:0 14px}
+  .top .g{flex:1}
+  .cont{flex:1;overflow:auto;padding:14px}
+  /* 装修三栏 */
+  .deco{display:flex;gap:10px;height:100%;min-height:0}
+  .lib{width:180px;flex:0 0 180px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;overflow-y:auto}
+  .lib .it{padding:8px 10px;border:1px dashed var(--line);border-radius:8px;margin-bottom:6px;cursor:pointer;font-size:12px;background:#fafafa}
+  .lib .it:hover{border-color:var(--accent);color:var(--accent)}
+  .canvasw{flex:1;display:flex;justify-content:center;overflow:auto;padding:8px;min-width:0}
+  .canvas{background:#fff;border:1px solid var(--line);border-radius:16px;padding:10px;align-self:flex-start}
+  .props{width:266px;flex:0 0 266px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;overflow-y:auto}
+  .blk{position:relative;border:1px dashed transparent;border-radius:8px;margin-bottom:6px;padding:2px}
+  .blk:hover{border-color:#9eace8}
+  .blk.sel{border-color:var(--accent);background:rgba(228,87,46,.04)}
+  .blk .ops{position:absolute;right:2px;top:-9px;display:none;gap:4px;z-index:9}
+  .blk.sel .ops,.blk:hover .ops{display:flex}
+  .ops button{font-size:10px;padding:2px 6px;border:1px solid var(--line);background:#fff;border-radius:5px;cursor:pointer}
+  table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+  th,td{text-align:left;padding:9px 10px;font-size:12px;border-bottom:1px solid rgba(0,0,0,.05)}
+  th{background:#fafafa;color:var(--sub);font-weight:500}
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:12px}
+  .row2{display:flex;gap:10px}.row2>*{flex:1;min-width:0}
+  .toast{position:fixed;left:50%;top:16px;transform:translateX(-50%);background:#1f2226;color:#fff;padding:8px 16px;border-radius:20px;font-size:12px;z-index:99;display:none}
+  .tip{font-size:11px;color:var(--sub);line-height:1.7}
+  .pill{display:inline-block;font-size:10px;padding:1px 6px;border-radius:20px;background:rgba(228,87,46,.1);color:var(--accent)}
+</style>
+</head>
+<body>
+
+<!-- 配置向导 -->
+<div id="gate" class="gate">
+  <h2>连接你的 GitHub 仓库</h2>
+  <div class="hint">
+    这个后台不需要服务器：它直接读写你 GitHub 仓库里的 <code>docs/data/db.json</code>。<br>
+    需要的 Token 是一个「只授权这一个仓库、Contents 读写」的 Fine-grained Token。
+  </div>
+  <div class="fld"><label>GitHub 用户名</label><input id="cOwner" placeholder="例如 339965523"></div>
+  <div class="fld"><label>仓库名</label><input id="cRepo" placeholder="例如 shunke-portal"></div>
+  <div class="fld"><label>分支</label><input id="cBranch" value="main"></div>
+  <div class="fld"><label>访问令牌（Token，只存在你自己的浏览器里）</label><input id="cToken" type="password" placeholder="github_pat_xxx"></div>
+  <button class="btn primary" style="width:100%;padding:11px" id="gateBtn">连接并打开后台</button>
+  <div class="hint" style="margin-top:12px">
+    申请地址：GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens → 选这个仓库 → Repository permissions → Contents: Read and write。
+  </div>
+</div>
+
+<!-- 主界面 -->
+<div id="main" class="app hide">
+  <aside class="side">
+    <b>瞬刻门户</b>
+    <a data-tab="deco">页面装修</a>
+    <a data-tab="video">视频管理</a>
+    <a data-tab="article">文章管理</a>
+    <a data-tab="music">音乐管理</a>
+    <a data-tab="push">通知推送</a>
+    <a data-tab="theme">字体与外观</a>
+    <a data-tab="tabs">底部导航</a>
+    <a data-tab="set">仓库设置</a>
+  </aside>
+  <div class="main">
+    <div class="top" id="topbar"></div>
+    <div class="cont" id="cont"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var S = {
+    cfg: null, db: null, sha: null,
+    tab: 'deco', pageIdx: 0, device: 'mobile', selId: null, form: {}
+  };
+
+  var TYPES = {
+    banner:'图片轮播', live:'直播/视频嵌入', videoGrid:'视频网格', videoRow:'横滑视频',
+    articleList:'文章列表', musicList:'音乐列表', navGrid:'图标导航', notice:'公告条',
+    text:'文本/标题', image:'单图/海报', spacer:'留白', tabs:'选项卡'
+  };
+
+  /* 每个类型可编辑的字段：p=路径，l=标签，t=类型(text/number/color/sel/textarea/check) */
+  var FIELDS = {
+    banner:[{p:'title',l:'标题',t:'text'},
+            {p:'images',l:'图片地址（每行一个）',t:'lines'},
+            {p:'radius',l:'圆角',t:'number'},
+            {p:'auto',l:'自动播放(秒)',t:'number'},
+            {p:'dev.mobile.h',l:'手机高度',t:'number'},
+            {p:'dev.tablet.h',l:'平板高度',t:'number'}],
+    live:[{p:'title',l:'标题',t:'text'},
+          {p:'url',l:'播放地址（m3u8/mp4）',t:'text'},
+          {p:'cover',l:'封面图',t:'text'},
+          {p:'action',l:'点击动作',t:'sel',o:[['play','直接播放'],['polyv','跳保利威直播间']]},
+          {p:'channelId',l:'频道号（可留空）',t:'text'}],
+    videoGrid:[{p:'title',l:'标题',t:'text'},
+               {p:'source',l:'取哪些视频',t:'sel',o:[['all','全部'],['pick','手动挑选']]},
+               {p:'ratio',l:'卡片比例',t:'sel',o:[['16:9','16:9'],['4:3','4:3'],['3:4','3:4 竖版']]},
+               {p:'limit',l:'显示条数',t:'number'},
+               {p:'dev.mobile.cols',l:'手机列数',t:'number'},
+               {p:'dev.tablet.cols',l:'平板列数',t:'number'}],
+    videoRow:[{p:'title',l:'标题',t:'text'},
+              {p:'limit',l:'显示条数',t:'number'},
+              {p:'dev.mobile.w',l:'手机卡片宽',t:'number'},
+              {p:'dev.tablet.w',l:'平板卡片宽',t:'number'}],
+    articleList:[{p:'title',l:'标题',t:'text'},
+                 {p:'limit',l:'显示条数',t:'number'},
+                 {p:'showSummary',l:'显示摘要',t:'sel',o:[['true','显示'],['false','不显示']]},
+                 {p:'dev.mobile.cols',l:'手机列数',t:'number'},
+                 {p:'dev.tablet.cols',l:'平板列数',t:'number'}],
+    musicList:[{p:'title',l:'标题',t:'text'},{p:'limit',l:'显示条数',t:'number'}],
+    navGrid:[{p:'title',l:'标题',t:'text'},
+             {p:'items',l:'导航项（标题|图标|跳转页，每行一个）',t:'navitems'},
+             {p:'dev.mobile.cols',l:'手机列数',t:'number'},
+             {p:'dev.tablet.cols',l:'平板列数',t:'number'}],
+    notice:[{p:'text',l:'公告文字',t:'text'}],
+    text:[{p:'text',l:'内容',t:'textarea'},
+          {p:'weight',l:'字重',t:'sel',o:[['400','常规'],['500','中黑'],['700','粗体']]},
+          {p:'color',l:'颜色',t:'color'},
+          {p:'align',l:'对齐',t:'sel',o:[['left','左'],['center','中'],['right','右']]},
+          {p:'dev.mobile.fs',l:'手机字号',t:'number'},
+          {p:'dev.tablet.fs',l:'平板字号',t:'number'}],
+    image:[{p:'url',l:'图片地址',t:'text'},
+           {p:'radius',l:'圆角',t:'number'},
+           {p:'dev.mobile.h',l:'手机高度',t:'number'},
+           {p:'dev.tablet.h',l:'平板高度',t:'number'}],
+    spacer:[{p:'dev.mobile.h',l:'手机高度',t:'number'},{p:'dev.tablet.h',l:'平板高度',t:'number'}],
+    tabs:[{p:'items',l:'选项（逗号分隔）',t:'text'},{p:'title',l:'标题',t:'text'}]
+  };
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];}); }
+  function toast(t){ var el=$('toast'); el.textContent=t; el.style.display='block'; clearTimeout(window._tt); window._tt=setTimeout(function(){el.style.display='none';},2000); }
+  function getP(o,p){ return p.split('.').reduce(function(a,k){ return a==null?undefined:a[k]; }, o); }
+  function setP(o,p,v){ var ks=p.split('.'), last=ks.pop(), t=o; ks.forEach(function(k){ if(t[k]==null) t[k]={}; t=t[k]; }); t[last]=v; }
+
+  /* ---------------- GitHub 读写 ---------------- */
+  function b64enc(str){
+    return btoa(unescape(encodeURIComponent(str))).replace(/\n/g,'');
+  }
+  function b64dec(b64){
+    return decodeURIComponent(escape(atob(String(b64).replace(/\s/g,''))));
+  }
+
+  function ghLoad(){
+    var c = S.cfg;
+    var url = 'https://api.github.com/repos/' + c.owner + '/' + c.repo + '/contents/docs/data/db.json?ref=' + c.branch + '&t=' + Date.now();
+    return fetch(url, { headers: { Authorization:'Bearer ' + c.token, Accept:'application/vnd.github+json' } })
+      .then(function(r){ if(!r.ok) throw new Error('读取失败 HTTP ' + r.status); return r.json(); })
+      .then(function(j){
+        S.sha = j.sha;
+        S.db = JSON.parse(b64dec(j.content));
+        return S.db;
+      });
+  }
+
+  function ghSave(msg){
+    var c = S.cfg;
+    var body = {
+      message: msg || '更新门户内容 ' + new Date().toLocaleString('zh-CN'),
+      content: b64enc(JSON.stringify(S.db, null, 2)),
+      branch: c.branch
+    };
+    if (S.sha) body.sha = S.sha;
+    return fetch('https://api.github.com/repos/' + c.owner + '/' + c.repo + '/contents/docs/data/db.json', {
+      method:'PUT',
+      headers:{ Authorization:'Bearer ' + c.token, Accept:'application/vnd.github+json', 'Content-Type':'application/json' },
+      body: JSON.stringify(body)
+    }).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j.message || ('HTTP ' + r.status)); if (j.content) S.sha = j.content.sha; return true; }); });
+  }
+
+  /* ---------------- 预览小渲染 ---------------- */
+  function devOf(b){ return (b.dev && b.dev[S.device]) || {}; }
+
+  function preview(b){
+    var d = devOf(b), th = (S.db.site && S.db.site.theme) || {};
+    var accent = th.accent || '#e4572e', surface = th.surface || '#f7f7f8', sub = th.textSub || '#6b7280', radius = (th.radius||12);
+    var title = b.title ? '<div style="font-size:'+(d.fs||18)+'px;font-weight:700;margin-bottom:8px">'+esc(b.title)+'</div>' : '';
+
+    if (b.type==='banner') return '<div style="height:'+(d.h||170)+'px;border-radius:'+radius+'px;background:'+surface+';display:flex;align-items:center;justify-content:center;color:'+sub+';font-size:12px">图片轮播 · '+((b.images||[]).length)+' 张</div>';
+    if (b.type==='live') return '<div style="position:relative;padding-top:56.25%;background:#111;border-radius:'+radius+'px;overflow:hidden"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#999;font-size:12px">▶ 16:9 '+(b.action==='polyv'?'（跳保利威）':'播放器')+'</div></div>';
+    if (b.type==='videoGrid'){
+      var cols = d.cols||2, vids=(S.db.videos||[]).slice(0,b.limit||8), cells='';
+      vids.forEach(function(v){ cells += '<div><div style="padding-top:56.25%;background:'+surface+';border-radius:'+radius+'px"></div><div style="font-size:11px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(v.title)+'</div></div>'; });
+      return title+'<div style="display:grid;gap:8px;grid-template-columns:repeat('+cols+',minmax(0,1fr))">'+cells+'</div>';
+    }
+    if (b.type==='videoRow'){
+      var w=d.w||150, row='';
+      (S.db.videos||[]).slice(0,b.limit||10).forEach(function(v){ row+='<div style="flex:0 0 '+w+'px"><div style="padding-top:56.25%;background:'+surface+';border-radius:'+radius+'px"></div><div style="font-size:11px;margin-top:4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+esc(v.title)+'</div></div>'; });
+      return title+'<div style="display:flex;gap:8px;overflow:auto">'+row+'</div>';
+    }
+    if (b.type==='articleList'){
+      var ac=d.cols||1, ai='';
+      (S.db.articles||[]).slice(0,b.limit||6).forEach(function(a){
+        ai+='<div style="display:flex;gap:8px"><div style="flex:0 0 64px;height:48px;background:'+surface+';border-radius:6px"></div><div style="min-width:0"><div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(a.title)+'</div><div style="font-size:10.5px;color:'+sub+'">'+esc(a.summary||'')+'</div></div></div>';
+      });
+      return title+'<div style="display:grid;gap:10px;grid-template-columns:repeat('+ac+',minmax(0,1fr))">'+ai+'</div>';
+    }
+    if (b.type==='musicList'){
+      var mi='';
+      (S.db.tracks||[]).slice(0,b.limit||10).forEach(function(t){
+        mi+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="width:36px;height:36px;border-radius:8px;background:'+surface+';display:flex;align-items:center;justify-content:center;color:'+accent+'">♪</div><div><div style="font-size:12px;font-weight:600">'+esc(t.title)+'</div><div style="font-size:10.5px;color:'+sub+'">'+esc(t.artist||'')+'</div></div></div>';
+      });
+      return title+mi;
+    }
+    if (b.type==='navGrid'){
+      var nc=d.cols||4, ni='';
+      (b.items||[]).forEach(function(it){ ni+='<div style="text-align:center"><div style="height:42px;border-radius:12px;background:'+surface+'"></div><div style="font-size:11px;margin-top:4px">'+esc(it.name)+'</div></div>'; });
+      return title+'<div style="display:grid;gap:10px;grid-template-columns:repeat('+nc+',minmax(0,1fr))">'+ni+'</div>';
+    }
+    if (b.type==='notice') return '<div style="background:'+surface+';border-radius:8px;padding:8px 10px;font-size:11.5px;color:'+sub+'">📢 '+esc(b.text||'')+'</div>';
+    if (b.type==='text') return '<div style="font-size:'+(d.fs||18)+'px;font-weight:'+(b.weight||700)+';color:'+(b.color||'inherit')+';text-align:'+(b.align||'left')+';white-space:pre-wrap">'+esc(b.text||'（文本）')+'</div>';
+    if (b.type==='image') return '<div style="height:'+(d.h||160)+'px;border-radius:'+radius+'px;background:'+surface+'"></div>';
+    if (b.type==='spacer') return '<div style="height:'+(d.h||16)+'px"></div>';
+    if (b.type==='tabs') return '<div style="display:flex;gap:16px;font-size:12px;color:'+sub+'">'+String(b.items||'').split(',').map(function(t,i){return '<span style="'+(i===0?'color:'+accent:'')+'">'+esc(t)+'</span>';}).join('')+'</div>';
+    return '<div style="color:'+sub+'">未知组件</div>';
+  }
+
+  /* ---------------- 顶部栏 ---------------- */
+  function renderTop(){
+    var top = $('topbar');
+    if (S.tab === 'deco'){
+      var opts = (S.db.pages||[]).map(function(p,i){ return '<option value="'+i+'"'+(i===S.pageIdx?' selected':'')+'>'+esc(p.name)+'</option>'; }).join('');
+      top.innerHTML = '<select id="pageSel" style="padding:6px;border-radius:8px;border:1px solid var(--line)">'+opts+'</select>' +
+        '<button class="btn sm '+(S.device==='mobile'?'primary':'')+'" id="devM">手机竖屏</button>' +
+        '<button class="btn sm '+(S.device==='tablet'?'primary':'')+'" id="devT">平板横屏</button>' +
+        '<span class="g"></span>'+
+        '<button class="btn" id="reloadBtn">重新读取</button>'+
+        '<button class="btn primary" id="saveBtn">保存到 GitHub</button>';
+      $('pageSel').onchange = function(){ S.pageIdx = Number(this.value); S.selId=null; renderAll(); };
+      $('devM').onclick = function(){ S.device='mobile'; renderAll(); };
+      $('devT').onclick = function(){ S.device='tablet'; renderAll(); };
+      $('reloadBtn').onclick = function(){ reload(); };
+      $('saveBtn').onclick = function(){ save(); };
+    } else {
+      var names = {video:'视频管理',article:'文章管理',music:'音乐管理',push:'通知推送',theme:'字体与外观',tabs:'底部导航',set:'仓库设置'};
+      top.innerHTML = '<span style="font-weight:600">'+(names[S.tab]||'')+'</span><span class="g"></span>'+
+        '<button class="btn" id="reloadBtn">重新读取</button>'+
+        '<button class="btn primary" id="saveBtn">保存到 GitHub</button>';
+      $('reloadBtn').onclick = function(){ reload(); };
+      $('saveBtn').onclick = function(){ save(); };
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('.side a'), function(a){
+      a.className = (a.dataset.tab === S.tab) ? 'on' : '';
+    });
+  }
+
+  /* ---------------- 装修页 ---------------- */
+  function curPage(){ return (S.db.pages||[])[S.pageIdx] || {blocks:[]}; }
+  function curBlocks(){ var p = curPage(); if (!p.blocks) p.blocks = []; return p.blocks; }
+  function selBlock(){ return curBlocks().filter(function(b){return b.id===S.selId;})[0]; }
+
+  function renderDeco(){
+    var w = S.device==='mobile' ? 375 : 1024;
+    var lib = Object.keys(TYPES).map(function(k){ return '<div class="it" data-add="'+k+'">'+TYPES[k]+'</div>'; }).join('');
+    var blocks = curBlocks(), html='';
+    blocks.forEach(function(b,i){
+      var hidden = (b.dev && b.dev[S.device] && b.dev[S.device].hidden);
+      html += '<div class="blk'+(S.selId===b.id?' sel':'')+'" data-sel="'+b.id+'">'+
+        '<div class="ops"><button data-mv="up" data-i="'+i+'">↑</button><button data-mv="down" data-i="'+i+'">↓</button><button data-dup="'+i+'">复制</button><button data-del="'+i+'">删</button></div>'+
+        (hidden ? '<div style="padding:6px 8px;color:#999;font-size:11px">（本设备隐藏）'+TYPES[b.type]+'</div>' : preview(b)) +
+        '</div>';
+    });
+    if (!blocks.length) html = '<div style="padding:40px 10px;text-align:center;color:#999;font-size:12px">这一页还是空的<br>从左边的组件库点一个进来</div>';
+
+    var propsHTML = renderProps();
+
+    $('cont').innerHTML = '<div class="deco">'+
+      '<div class="lib"><div style="font-size:12px;color:#6b7280;margin-bottom:8px">组件库（点一下加到本页）</div>'+lib+'</div>'+
+      '<div class="canvasw"><div class="canvas" style="width:'+w+'px;max-width:100%">'+html+'</div></div>'+
+      '<div class="props">'+propsHTML+'</div></div>';
+
+    // 事件
+    Array.prototype.forEach.call(document.querySelectorAll('[data-add]'), function(el){
+      el.onclick = function(){ addBlock(el.dataset.add); };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-sel]'), function(el){
+      el.onclick = function(e){ S.selId = el.dataset.sel; renderDeco(); };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-mv]'), function(el){
+      el.onclick = function(e){ e.stopPropagation(); moveBlock(Number(el.dataset.i), el.dataset.mv==='up'?-1:1); };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-dup]'), function(el){
+      el.onclick = function(e){ e.stopPropagation(); dupBlock(Number(el.dataset.dup)); };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-del]'), function(el){
+      el.onclick = function(e){ e.stopPropagation(); delBlock(Number(el.dataset.del)); };
+    });
+    bindProps();
+  }
+
+  function renderProps(){
+    var b = selBlock();
+    if (!b) return '<div class="tip">选中中间任意一个组件，这里出现它的设置项。<br><br>列数、字号、高度这类，手机和平板各存一套值——这就是双端适配。</div>';
+    var fields = FIELDS[b.type] || [];
+    var html = '<div style="font-weight:600;margin-bottom:10px">'+TYPES[b.type]+' <span class="pill">'+(S.device==='mobile'?'手机':'平板')+'</span></div>';
+    html += '<div class="fld"><label>本设备是否显示</label><select data-fp="__hidden">'+
+      '<option value="false"'+((devOf(b).hidden)?'':' selected')+'>显示</option>'+
+      '<option value="true"'+((devOf(b).hidden)?' selected':'')+'>隐藏</option></select></div>';
+    html += '<div class="fld"><label>上下留白(px)</label><input type="number" data-fp="pad" value="'+(b.pad||8)+'"></div>';
+    fields.forEach(function(f){
+      var v = getP(b, f.p);
+      var input = '';
+      if (f.t==='textarea') input = '<textarea data-fp="'+f.p+'">'+esc(v||'')+'</textarea>';
+      else if (f.t==='lines') input = '<textarea data-fp="'+f.p+'">'+esc((v||[]).join('\n'))+'</textarea>';
+      else if (f.t==='navitems') input = '<textarea data-fp="'+f.p+'">'+esc((v||[]).map(function(x){return [x.name,x.icon||'',x.page||''].join('|');}).join('\n'))+'</textarea>';
+      else if (f.t==='color') input = '<input type="color" data-fp="'+f.p+'" value="'+esc(v||'#17181a')+'">';
+      else if (f.t==='sel'){ input='<select data-fp="'+f.p+'">'+f.o.map(function(o){var val=String(o[0]);return '<option value="'+val+'"'+(String(v)===val?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'; }
+      else if (f.t==='number') input = '<input type="number" data-fp="'+f.p+'" value="'+(v==null?'':v)+'">';
+      else input = '<input data-fp="'+f.p+'" value="'+esc(v||'')+'">';
+      html += '<div class="fld"><label>'+f.l+'</label>'+input+'</div>';
+    });
+    return html;
+  }
+
+  function bindProps(){
+    Array.prototype.forEach.call(document.querySelectorAll('[data-fp]'), function(el){
+      el.onchange = function(){
+        var b = selBlock(); if (!b) return;
+        var p = el.dataset.fp, val = el.value;
+        if (p === '__hidden'){ if (!b.dev) b.dev={}; if(!b.dev[S.device]) b.dev[S.device]={}; b.dev[S.device].hidden = (val==='true'); }
+        else if (p === 'pad') b.pad = Number(val)||0;
+        else if (p === 'images') b.images = String(val).split('\n').map(function(s){return s.trim();}).filter(Boolean);
+        else if (p === 'items' && b.type === 'navGrid') b.items = String(val).split('\n').map(function(l){var p2=l.split('|');return {name:(p2[0]||'').trim(),icon:(p2[1]||'').trim(),page:(p2[2]||'').trim()};}).filter(function(x){return x.name;});
+        else if (p === 'showSummary') b.showSummary = (val==='true');
+        else if (p.indexOf('dev.') === 0) setP(b, p, Number(val)||0);
+        else if (p === 'weight') b.weight = Number(val)||400;
+        else if (p === 'limit' || p === 'radius' || p === 'auto' || p === 'pad') setP(b, p, Number(val)||0);
+        else setP(b, p, val);
+        renderDeco();
+      };
+    });
+  }
+
+  function makeBlock(type){
+    var d = function(m,t){ return {mobile:Object.assign({hidden:false},m), tablet:Object.assign({hidden:false},t)}; };
+    var base = { id:'b'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), type:type, title:'', hidden:false, pad:8,
+      dev: d({cols:2,h:0,fs:15,w:150},{cols:4,h:0,fs:16,w:220}) };
+    var extra = {
+      banner:{images:[],radius:12,auto:4},
+      live:{url:'',cover:'',action:'play',channelId:''},
+      videoGrid:{source:'all',ids:[],ratio:'16:9',limit:8},
+      videoRow:{limit:10},
+      articleList:{limit:6,showSummary:true},
+      musicList:{style:'list',limit:10},
+      navGrid:{items:[]},
+      notice:{text:'欢迎来到瞬刻传媒'},
+      text:{text:'',weight:700,color:'#17181a',align:'left'},
+      image:{url:'',radius:12},
+      spacer:{},
+      tabs:{items:'推荐,最新,热门'}
+    }[type] || {};
+    return Object.assign(base, extra);
+  }
+
+  function addBlock(t){ var b=makeBlock(t); curBlocks().push(b); S.selId=b.id; renderDeco(); }
+  function moveBlock(i,dir){ var a=curBlocks(), t=i+dir; if(t<0||t>=a.length) return; var x=a.splice(i,1)[0]; a.splice(t,0,x); renderDeco(); }
+  function dupBlock(i){ var c=JSON.parse(JSON.stringify(curBlocks()[i])); c.id=makeBlock(c.type).id; curBlocks().splice(i+1,0,c); renderDeco(); }
+  function delBlock(i){ curBlocks().splice(i,1); S.selId=null; renderDeco(); }
+
+  /* ---------------- 内容管理 ---------------- */
+  function renderList(kind, cols, rowsFn, extraBtn){
+    var list = S.db[kind] || [];
+    var head = cols.map(function(c){ return '<th>'+c[1]+'</th>'; }).join('') + '<th>操作</th>';
+    var body = list.map(function(it, i){
+      return '<tr>' + cols.map(function(c){ return '<td>'+esc(rowsFn(it,c[0]))+'</td>'; }).join('') +
+        '<td><button class="btn sm" data-edit="'+i+'">编辑</button> <button class="btn sm" data-rm="'+i+'">删除</button></td></tr>';
+    }).join('');
+    return '<table><tr>'+head+'</tr>'+body+'</table>';
+  }
+
+  function bindListEvents(kind, afterEdit){
+    Array.prototype.forEach.call(document.querySelectorAll('[data-edit]'), function(el){
+      el.onclick = function(){ S.form = JSON.parse(JSON.stringify((S.db[kind]||[])[Number(el.dataset.edit)] || {})); afterEdit(); };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-rm]'), function(el){
+      el.onclick = function(){
+        if (!confirm('确定删除这条？')) return;
+        (S.db[kind]||[]).splice(Number(el.dataset.rm),1); renderTab();
+      };
+    });
+  }
+
+  function renderVideo(){
+    var f = S.form;
+    var html = '<div class="card"><div style="font-weight:600;margin-bottom:10px">新增 / 编辑视频</div>'+
+      '<div class="row2"><div class="fld"><label>标题</label><input id="fTitle" value="'+esc(f.title||'')+'"></div>'+
+      '<div class="fld"><label>类型</label><select id="fLive"><option value="false"'+(f.isLive?'':' selected')+'>点播</option><option value="true"'+(f.isLive?' selected':'')+'>直播流</option></select></div></div>'+
+      '<div class="fld"><label>地址（m3u8 / mp4，腾讯云 COS 地址直接粘）</label><input id="fUrl" value="'+esc(f.url||'')+'"></div>'+
+      '<div class="row2"><div class="fld"><label>封面图地址</label><input id="fCover" value="'+esc(f.cover||'')+'"></div>'+
+      '<div class="fld"><label>时长</label><input id="fDur" value="'+esc(f.duration||'')+'"></div></div>'+
+      '<div class="fld"><label>简介</label><textarea id="fDesc">'+esc(f.desc||'')+'</textarea></div>'+
+      '<button class="btn primary" id="saveVideo">保存到内存</button> <span class="tip">改完记得点右上角「保存到 GitHub」</span></div>';
+    html += renderList('videos', [['title','标题'],['isLive','类型'],['url','地址']], function(it,k){
+      if (k==='isLive') return it.isLive ? '直播' : '点播';
+      return it[k]||'';
+    });
+    $('cont').innerHTML = html;
+    $('saveVideo').onclick = function(){
+      var item = { id: S.form.id, title: $('fTitle').value, url: $('fUrl').value, cover: $('fCover').value,
+        duration: $('fDur').value, desc: $('fDesc').value, isLive: ($('fLive').value==='true'),
+        created: S.form.created || Date.now() };
+      upsert('videos', item); S.form = {}; renderTab(); toast('已放进内存，记得保存到 GitHub');
+    };
+    bindListEvents('videos', function(){ renderTab(); });
+  }
+
+  function upsert(kind, item){
+    if (!S.db[kind]) S.db[kind] = [];
+    if (!item.id) item.id = kind[0] + Date.now().toString(36);
+    var i = S.db[kind].findIndex(function(x){ return x.id === item.id; });
+    if (i >= 0) S.db[kind][i] = item; else S.db[kind].unshift(item);
+  }
+
+  function renderArticle(){
+    var f = S.form;
+    var html = '<div class="card"><div style="font-weight:600;margin-bottom:10px">新增 / 编辑文章</div>'+
+      '<div class="row2"><div class="fld"><label>标题</label><input id="aTitle" value="'+esc(f.title||'')+'"></div>'+
+      '<div class="fld"><label>作者</label><input id="aAuthor" value="'+esc(f.author||'')+'"></div></div>'+
+      '<div class="row2"><div class="fld"><label>封面图地址</label><input id="aCover" value="'+esc(f.cover||'')+'"></div>'+
+      '<div class="fld"><label>摘要</label><input id="aSummary" value="'+esc(f.summary||'')+'"></div></div>'+
+      '<div class="fld"><label>正文（微信编辑器做好后整段粘贴）</label><textarea id="aContent" style="min-height:180px;font-family:monospace;font-size:11px">'+esc(f.content||'')+'</textarea>'+
+      '<div class="tip" style="margin-top:6px">如果只粘出文字没有样式，就在微信编辑器里切到「源码 / HTML」复制带标签的那段。</div></div>'+
+      '<button class="btn primary" id="saveArt">保存到内存</button></div>';
+    html += renderList('articles', [['title','标题'],['author','作者'],['views','阅读']], function(it,k){ return it[k]||''; });
+    $('cont').innerHTML = html;
+    $('saveArt').onclick = function(){
+      var item = { id:S.form.id, title:$('aTitle').value, author:$('aAuthor').value, cover:$('aCover').value,
+        summary:$('aSummary').value, content:$('aContent').value, views:S.form.views||0, created:S.form.created||Date.now() };
+      upsert('articles', item); S.form={}; renderTab(); toast('已放进内存');
+    };
+    bindListEvents('articles', function(){ renderTab(); });
+  }
+
+  function renderMusic(){
+    var f = S.form;
+    var html = '<div class="card"><div style="font-weight:600;margin-bottom:10px">新增 / 编辑音乐</div>'+
+      '<div class="row2"><div class="fld"><label>标题</label><input id="mTitle" value="'+esc(f.title||'')+'"></div>'+
+      '<div class="fld"><label>歌手 / 说明</label><input id="mArtist" value="'+esc(f.artist||'')+'"></div></div>'+
+      '<div class="fld"><label>音频地址（mp3 / m4a）</label><input id="mUrl" value="'+esc(f.url||'')+'"></div>'+
+      '<div class="fld"><label>封面地址</label><input id="mCover" value="'+esc(f.cover||'')+'"></div>'+
+      '<button class="btn primary" id="saveMusic">保存到内存</button></div>';
+    html += renderList('tracks', [['title','标题'],['artist','歌手'],['url','地址']], function(it,k){ return it[k]||''; });
+    $('cont').innerHTML = html;
+    $('saveMusic').onclick = function(){
+      var item = { id:S.form.id, title:$('mTitle').value, artist:$('mArtist').value, url:$('mUrl').value, cover:$('mCover').value, created:S.form.created||Date.now() };
+      upsert('tracks', item); S.form={}; renderTab(); toast('已放进内存');
+    };
+    bindListEvents('tracks', function(){ renderTab(); });
+  }
+
+  function renderPush(){
+    var html = '<div class="card"><div style="font-weight:600;margin-bottom:10px">发一条通知</div>'+
+      '<div class="fld"><label>标题</label><input id="pTitle" placeholder="例如 v1.2 已发布"></div>'+
+      '<div class="fld"><label>内容</label><textarea id="pBody"></textarea></div>'+
+      '<div class="fld"><label>点开跳到哪（可留空）</label><input id="pUrl" placeholder="https://..."></div>'+
+      '<button class="btn primary" id="savePush">发布（写入内存）</button></div>';
+    html += renderList('push', [['title','标题'],['body','内容']], function(it,k){ return it[k]||''; });
+    $('cont').innerHTML = html;
+    $('savePush').onclick = function(){
+      upsert('push', { title:$('pTitle').value, body:$('pBody').value, url:$('pUrl').value, created: Date.now() });
+      renderTab(); toast('已放进内存，记得保存到 GitHub');
+    };
+    bindListEvents('push', function(){ renderTab(); });
+  }
+
+  function renderTheme(){
+    var t = S.db.site.theme || {};
+    var colors = [['bg','页面背景'],['surface','卡片底色'],['text','正文颜色'],['textSub','次要文字'],['accent','主色'],['tabActive','底栏选中'],['tabNormal','底栏未选中']];
+    var ch = colors.map(function(c){
+      return '<div class="fld"><label>'+c[1]+'</label><div style="display:flex;gap:8px"><input type="color" data-th="'+c[0]+'" value="'+esc(t[c[0]]||'#ffffff')+'" style="width:52px;height:32px;padding:0;border:none"><input data-th="'+c[0]+'" value="'+esc(t[c[0]]||'')+'" style="flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:6px"></div></div>';
+    }).join('');
+    $('cont').innerHTML = '<div class="card"><div style="font-weight:600;margin-bottom:12px">字体与外观</div>'+ch+
+      '<div class="row2">'+
+        '<div class="fld"><label>字体</label><select data-th="fontFamily">'+
+          [['system','系统默认'],['sans','黑体'],['serif','宋体'],['kai','楷体']].map(function(o){return '<option value="'+o[0]+'"'+(t.fontFamily===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+
+        '</select></div>'+
+        '<div class="fld"><label>圆角</label><input type="number" data-th="radius" value="'+(t.radius||12)+'"></div>'+
+      '</div>'+
+      '<div class="row2">'+
+        '<div class="fld"><label>正文字号</label><input type="number" data-th="fontSizeBase" value="'+(t.fontSizeBase||15)+'"></div>'+
+        '<div class="fld"><label>标题字号</label><input type="number" data-th="fontSizeTitle" value="'+(t.fontSizeTitle||19)+'"></div>'+
+      '</div>'+
+      '<div class="row2">'+
+        '<div class="fld"><label>标题字重</label><select data-th="fontWeightTitle">'+
+          [['400','常规'],['500','中黑'],['700','粗体'],['800','特粗']].map(function(o){return '<option value="'+o[0]+'"'+(String(t.fontWeightTitle)===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+
+        '</select></div>'+
+        '<div class="fld"><label>App 名称</label><input data-th="name" value="'+esc(S.db.site.name||'')+'"></div>'+
+      '</div>'+
+      '<div class="tip">改完点「保存到 GitHub」，刷新前台页面即可看到。</div></div>';
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-th]'), function(el){
+      el.onchange = function(){
+        var k = el.dataset.th, v = el.value;
+        if (k === 'name'){ S.db.site.name = v; return; }
+        if (['radius','fontSizeBase','fontSizeTitle','fontWeightTitle'].indexOf(k) >= 0) v = Number(v) || 0;
+        if (!S.db.site.theme) S.db.site.theme = {};
+        S.db.site.theme[k] = v;
+      };
+    });
+  }
+
+  function renderTabs(){
+    var tabs = (S.db.site && S.db.site.tabs) || [];
+    var pages = (S.db.pages || []);
+    var rows = tabs.map(function(t, i){
+      return '<tr>'+
+        '<td><input data-ti="'+i+'" data-k="name" value="'+esc(t.name)+'" style="width:100%;border:1px solid var(--line);border-radius:6px;padding:5px"></td>'+
+        '<td><select data-ti="'+i+'" data-k="pageId" style="width:100%;border:1px solid var(--line);border-radius:6px;padding:5px">'+
+          pages.map(function(p){return '<option value="'+p.id+'"'+(t.pageId===p.id?' selected':'')+'>'+esc(p.name)+'</option>';}).join('')+
+        '</select></td>'+
+        '<td><button class="btn sm" data-trm="'+i+'">删除</button></td></tr>';
+    }).join('');
+    $('cont').innerHTML = '<div class="card"><div style="font-weight:600;margin-bottom:10px">底部导航</div>'+
+      '<div class="tip" style="margin-bottom:10px">想只做「纯视频版」，就把其它标签删掉，只留视频。</div>'+
+      '<table><tr><th>名称</th><th>绑定页面</th><th>操作</th></tr>'+rows+'</table>'+
+      '<button class="btn" style="margin-top:10px" id="addTab">+ 增加一个标签</button></div>';
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-ti]'), function(el){
+      el.onchange = function(){ S.db.site.tabs[Number(el.dataset.ti)][el.dataset.k] = el.value; };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-trm]'), function(el){
+      el.onclick = function(){ S.db.site.tabs.splice(Number(el.dataset.trm),1); renderTab(); };
+    });
+    $('addTab').onclick = function(){
+      S.db.site.tabs.push({ id:'t'+Date.now(), name:'新标签', pageId:(pages[0]||{}).id, icon:'home' });
+      renderTab();
+    };
+  }
+
+  function renderSet(){
+    var c = S.cfg, st = S.db.settings || {};
+    $('cont').innerHTML = '<div class="card"><div style="font-weight:600;margin-bottom:10px">仓库连接</div>'+
+      '<div class="row2"><div class="fld"><label>用户名</label><input id="sOwner" value="'+esc(c.owner)+'"></div>'+
+      '<div class="fld"><label>仓库</label><input id="sRepo" value="'+esc(c.repo)+'"></div></div>'+
+      '<div class="row2"><div class="fld"><label>分支</label><input id="sBranch" value="'+esc(c.branch)+'"></div>'+
+      '<div class="fld"><label>Token</label><input id="sToken" type="password" value="'+esc(c.token)+'"></div></div>'+
+      '<button class="btn primary" id="saveCfg">保存连接</button>'+
+      '<span class="tip" style="margin-left:8px">Token 只保存在本机浏览器</span></div>'+
+      '<div class="card"><div style="font-weight:600;margin-bottom:10px">签名服务（Cloudflare Worker）</div>'+
+      '<div class="fld"><label>Worker 地址</label><input id="sWorker" value="'+esc((st.workerBase||''))+'"></div>'+
+      '<div class="tip">例：https://shunke-polyv.你的名字.workers.dev 。没填的话，「跳保利威」按钮会提示未配置。</div>'+
+      '<div class="fld" style="margin-top:10px"><label>保利威频道号（仅参考，真正配置在 Worker 的环境变量里）</label><input id="sChannel" value="'+esc((st.channelId||''))+'"></div>'+
+      '<button class="btn primary" id="saveWorker">保存</button></div>';
+
+    $('saveCfg').onclick = function(){
+      S.cfg = { owner:$('sOwner').value.trim(), repo:$('sRepo').value.trim(), branch:$('sBranch').value.trim()||'main', token:$('sToken').value.trim() };
+      localStorage.setItem('ghcfg', JSON.stringify(S.cfg));
+      toast('连接已保存'); reload();
+    };
+    $('saveWorker').onclick = function(){
+      if (!S.db.settings) S.db.settings = {};
+      S.db.settings.workerBase = $('sWorker').value.trim();
+      S.db.settings.channelId = $('sChannel').value.trim();
+      toast('已保存到内存，记得点「保存到 GitHub」');
+    };
+  }
+
+  /* ---------------- 渲染分发 ---------------- */
+  function renderTab(){
+    renderTop();
+    S.selId = S.selId || null;
+    ({
+      deco: renderDeco,
+      video: renderVideo,
+      article: renderArticle,
+      music: renderMusic,
+      push: renderPush,
+      theme: renderTheme,
+      tabs: renderTabs,
+      set: renderSet
+    }[S.tab] || renderDeco)();
+  }
+  function renderAll(){ renderTab(); }
+
+  function reload(){
+    toast('正在读取…');
+    ghLoad().then(function(){ renderAll(); toast('读取成功'); })
+      .catch(function(e){ toast(e.message || '读取失败'); });
+  }
+  function save(){
+    toast('正在提交到 GitHub…');
+    ghSave().then(function(){ toast('已保存并提交，前台刷新即可看到'); })
+      .catch(function(e){ toast('保存失败：' + (e.message || '检查 Token 权限')); });
+  }
+
+  /* ---------------- 启动 ---------------- */
+  $('gateBtn').onclick = function(){
+    var cfg = { owner:$('cOwner').value.trim(), repo:$('cRepo').value.trim(), branch:($('cBranch').value.trim()||'main'), token:$('cToken').value.trim() };
+    if (!cfg.owner || !cfg.repo || !cfg.token){ toast('三项都要填'); return; }
+    localStorage.setItem('ghcfg', JSON.stringify(cfg));
+    S.cfg = cfg;
+    ghLoad().then(function(d){
+      $('gate').classList.add('hide'); $('main').classList.remove('hide');
+      if (!d.site) throw new Error('db.json 结构不对');
+      renderAll();
+      Array.prototype.forEach.call(document.querySelectorAll('.side a'), function(a){
+        a.onclick = function(){ S.tab = a.dataset.tab; S.selId = null; renderTab(); };
+      });
+    }).catch(function(e){
+      toast('连接失败：' + (e.message || ''));
+    });
+  };
+
+  (function boot(){
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem('ghcfg') || 'null'); } catch(e){}
+    if (!saved) return;
+    S.cfg = saved;
+    $('gate').classList.add('hide'); $('main').classList.remove('hide');
+    ghLoad().then(function(d){
+      if (!d.site) throw new Error('db.json 结构不对');
+      renderAll();
+      Array.prototype.forEach.call(document.querySelectorAll('.side a'), function(a){
+        a.onclick = function(){ S.tab = a.dataset.tab; S.selId = null; renderTab(); };
+      });
+    }).catch(function(e){
+      $('gate').classList.remove('hide'); $('main').classList.add('hide');
+    });
+  })();
+})();
+</script>
+</body>
+</html>
