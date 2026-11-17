@@ -1,0 +1,27 @@
+name: sync-from-cdn
+on:
+  push:
+    paths:
+      - '.sync2/**'
+permissions:
+  contents: write
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: download
+        run: |
+          set -e
+          while IFS='|' read -r p u; do
+            [ -z "$p" ] && continue
+            mkdir -p "$(dirname "$p")"
+            curl -sL "$u" -o "$p"
+          done < .sync2/list.txt
+      - name: commit
+        run: |
+          git config user.name sync-bot
+          git config user.email bot@users.noreply.github.com
+          git add -A
+          git commit -m 'sync from cdn' || echo no-change
+          git push
